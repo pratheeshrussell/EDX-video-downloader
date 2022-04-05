@@ -3,9 +3,9 @@ import { ApiEndPoints } from "../constants/api";
 const path = require('path');
 const fs = require('fs');
 
-const Axios = require('axios');
 const ProgressBar = require('progress');
 const cheerio = require('cheerio');
+const colors = require('colors');
 
 
 export class DownloadHelper{
@@ -33,7 +33,8 @@ export class DownloadHelper{
                     await this.downloadFile(courseData["video"]["srt"], courseData["name"] + '.srt', initpath);
                 }
             }
-            if(courseData["type"] == 'html'){
+            // Download the html for video also
+            if(courseData["type"] == 'html' || courseData["type"] == 'video'){
                 //Save as html
                 await this.downloadHTML(courseData["studenturl"], courseData["name"] + '.html', initpath);
             }
@@ -46,7 +47,7 @@ export class DownloadHelper{
     async downloadFile(url:string, filename:string, savepath:string){
         try{
         await fs.promises.mkdir(savepath, { recursive: true });
-        const { data, headers } = await Axios({
+        const { data, headers } = await this.axios({
           url,
           method: 'GET',
           responseType: 'stream',
@@ -54,9 +55,13 @@ export class DownloadHelper{
           
         });
         const totalLength = headers['content-length'];
+        let nameTrimmer = (inputName:string) =>{
+            let split = inputName.split('.');
+            return split.shift()?.substring(0, 4) + '.' + split.pop();
+        }
       
         console.log("Downloading " + filename);
-        const progressBar = new ProgressBar('-> downloading [:bar] :percent :etas', {
+        const progressBar = new ProgressBar('-> '+nameTrimmer(filename)+' [:bar] :percent :etas', {
             width: 40,
             complete: '=',
             incomplete: ' ',
@@ -66,11 +71,19 @@ export class DownloadHelper{
       
         const writer = fs.createWriteStream(path.resolve(savepath, filename));
 
-        data.on('data', (chunk:any) => progressBar.tick(chunk.length))
+        data.on('data', (chunk: any | any[]) => {
+            try {
+                return progressBar.tick(chunk.length);
+            } catch (e) {
+                // NOT SURE WHY WE GET HERE
+                console.log(colors.yellow("Status unknown " + filename));
+                return 0;
+            }
+        });
         data.pipe(writer);
         } catch (e) {
             
-            console.log("Failed to download " + filename);
+            console.log(colors.red("Failed to download " + filename));
             fs.writeFile(path.resolve(savepath, filename + '.err.log'), JSON.stringify({ url: url, error: e}), 
             (err: any) => {
                 if (err) {return; }
@@ -109,7 +122,7 @@ export class DownloadHelper{
                     // save html
                     fs.writeFile(path.resolve(savepath, filename), $.html(), (err: any) => {
                         if (err) {
-                          console.error(err)
+                          console.error(colors.red(err))
                           return
                         }
                       });
@@ -117,7 +130,7 @@ export class DownloadHelper{
                     throw new Error("Got status " + res.status);
                 }
         } catch (e) {
-            console.log("Failed to download " + filename);
+            console.log(colors.red("Failed to download " + filename));
             fs.writeFile(path.resolve(savepath, filename + '.err.log'), JSON.stringify({ url: url}), 
             (err: any) => {
                 if (err) {return; }
