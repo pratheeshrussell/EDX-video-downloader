@@ -6,6 +6,7 @@ const fs = require('fs');
 const ProgressBar = require('progress');
 const cheerio = require('cheerio');
 const colors = require('colors');
+const safeStringify = require('json-stringify-safe');
 
 
 export class DownloadHelper{
@@ -84,7 +85,7 @@ export class DownloadHelper{
         } catch (e) {
             
             console.log(colors.red("Failed to download " + filename));
-            fs.writeFile(path.resolve(savepath, filename + '.err.log'), JSON.stringify({ url: url, error: e}), 
+            fs.writeFile(path.resolve(savepath, filename + '.err.log'), safeStringify({ downurl: url, error: e}), 
             (err: any) => {
                 if (err) {return; }
               });
@@ -131,7 +132,7 @@ export class DownloadHelper{
                 }
         } catch (e) {
             console.log(colors.red("Failed to download " + filename));
-            fs.writeFile(path.resolve(savepath, filename + '.err.log'), JSON.stringify({ url: url}), 
+            fs.writeFile(path.resolve(savepath, filename + '.err.log'), safeStringify({ downurl: url, error: e}), 
             (err: any) => {
                 if (err) {return; }
               });
